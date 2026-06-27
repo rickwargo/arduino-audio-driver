@@ -7,7 +7,7 @@ var searchData=
   ['wide_4',['Wide',['../namespaceaudio__driver.html#aec0fb936201731e89db21471da004211ae7c770a61dbdf81ca922ae0260e327c1',1,'audio_driver']]],
   ['wire_5',['wire',['../classaudio__driver_1_1_zephyr_driver_common.html#ad5c36690ca6606343033280ffd2ce71b',1,'audio_driver::ZephyrDriverCommon::wire'],['../classaudio__driver_1_1_p_c_m3168.html#ad5c36690ca6606343033280ffd2ce71b',1,'audio_driver::PCM3168::wire']]],
   ['wm8078_6',['wm8078',['../classaudio__driver_1_1_audio_driver_w_m8978_class.html#acacc5a1cde1e90163709690a7fca38a9',1,'audio_driver::AudioDriverWM8978Class']]],
-  ['wm8731_7',['wm8731',['../classaudio__driver_1_1_w_m8731.html',1,'WM8731'],['../classaudio__driver_1_1_audio_driver_w_m8731_class.html#aa6118db6f5ddda5b22123f937bdad8cf',1,'audio_driver::AudioDriverWM8731Class::wm8731'],['../classaudio__driver_1_1_w_m8731.html#a84ef4131990e00489080c72dfb7b3cde',1,'audio_driver::WM8731::WM8731()']]],
+  ['wm8731_7',['wm8731',['../classaudio__driver_1_1_w_m8731.html',1,'WM8731'],['../classaudio__driver_1_1_w_m8731.html#a84ef4131990e00489080c72dfb7b3cde',1,'audio_driver::WM8731::WM8731()'],['../classaudio__driver_1_1_audio_driver_w_m8731_class.html#aa6118db6f5ddda5b22123f937bdad8cf',1,'audio_driver::AudioDriverWM8731Class::wm8731']]],
   ['wm8731_2eh_8',['WM8731.h',['../_w_m8731_8h.html',1,'']]],
   ['wm8731_5faddr_9',['WM8731_ADDR',['../namespaceaudio__driver.html#a0b142b269ad74f69a2c4d9d3fbe2a829',1,'audio_driver']]],
   ['wm8904_10',['wm8904',['../classaudio__driver_1_1_w_m8904.html',1,'WM8904'],['../classaudio__driver_1_1_w_m8904.html#a2086491e47550567b80097e1f131e115',1,'audio_driver::WM8904::WM8904()']]],

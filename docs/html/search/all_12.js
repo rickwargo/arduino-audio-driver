@@ -159,7 +159,7 @@ var searchData=
   ['setwriteretrycount_156',['setWriteRetryCount',['../classaudio__driver_1_1_w_m8960.html#a735897bd0efd3c5d44603eff1cbf0f5c',1,'audio_driver::WM8960']]],
   ['sf32lb_157',['SF32LB',['../classaudio__driver_1_1_s_f32_l_b.html',1,'audio_driver']]],
   ['sf32lb_2eh_158',['SF32LB.h',['../_s_f32_l_b_8h.html',1,'']]],
-  ['sgtl5000_159',['sgtl5000',['../classaudio__driver_1_1_s_g_t_l5000.html',1,'SGTL5000'],['../classaudio__driver_1_1_s_g_t_l5000.html#a0d4e5472f5f2cfd9b267cab3fa1cbee3',1,'audio_driver::SGTL5000::SGTL5000()'],['../classaudio__driver_1_1_audio_driver_s_g_t_l5000_class.html#a23fcaf353689cc6c7fcf5fa27d80c486',1,'audio_driver::AudioDriverSGTL5000Class::sgtl5000']]],
+  ['sgtl5000_159',['sgtl5000',['../classaudio__driver_1_1_s_g_t_l5000.html',1,'SGTL5000'],['../classaudio__driver_1_1_audio_driver_s_g_t_l5000_class.html#a23fcaf353689cc6c7fcf5fa27d80c486',1,'audio_driver::AudioDriverSGTL5000Class::sgtl5000'],['../classaudio__driver_1_1_s_g_t_l5000.html#a0d4e5472f5f2cfd9b267cab3fa1cbee3',1,'audio_driver::SGTL5000::SGTL5000()']]],
   ['sgtl5000_2eh_160',['SGTL5000.h',['../_s_g_t_l5000_8h.html',1,'']]],
   ['sgtl5000_5faddr_161',['SGTL5000_ADDR',['../namespaceaudio__driver.html#a744490a10d3eab6b13980d9005840f97',1,'audio_driver']]],
   ['sgtl5000_5faddr_5fcs_5fhigh_162',['SGTL5000_ADDR_CS_HIGH',['../namespaceaudio__driver.html#ad3473f784decbc8d74aa49e4380dd23a',1,'audio_driver']]],

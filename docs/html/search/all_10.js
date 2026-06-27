@@ -116,7 +116,7 @@ var searchData=
   ['power_5fdown_113',['power_down',['../classaudio__driver_1_1_w_m8731.html#ae08597c3f15b58532560dabef8967a3d',1,'audio_driver::WM8731']]],
   ['power_5fpin_114',['power_pin',['../classaudio__driver_1_1_t_a_s5805_m.html#aa41ea56f7fb8f094baaf5bbf605cdeda',1,'audio_driver::TAS5805M']]],
   ['powerdown_115',['powerdown',['../classaudio__driver_1_1_w_m8731.html#a711a3a0a97b983d73268f38f53d8bb82a5738b4738d0d5191678eed09d6b5c6f8',1,'audio_driver::WM8731::PowerDown'],['../classaudio__driver_1_1_w_m8731.html#ad9246273e5557405623484e265e54ee8',1,'audio_driver::WM8731::PowerDown']]],
-  ['poweroff_116',['poweroff',['../classaudio__driver_1_1_w_m8731.html#ad9246273e5557405623484e265e54ee8a015000f123643bed2f55db3d37ea7268',1,'audio_driver::WM8731::PowerOff'],['../classaudio__driver_1_1_n_a_u8325.html#a2497dfe95d3876d598347df587b0ccc7',1,'audio_driver::NAU8325::powerOff()']]],
+  ['poweroff_116',['poweroff',['../classaudio__driver_1_1_n_a_u8325.html#a2497dfe95d3876d598347df587b0ccc7',1,'audio_driver::NAU8325::powerOff()'],['../classaudio__driver_1_1_w_m8731.html#ad9246273e5557405623484e265e54ee8a015000f123643bed2f55db3d37ea7268',1,'audio_driver::WM8731::PowerOff']]],
   ['poweron_117',['powerOn',['../classaudio__driver_1_1_n_a_u8325.html#a5d4144b4b65f8754cde6a9d06dcce521',1,'audio_driver::NAU8325']]],
   ['pre_5fdiv_118',['pre_div',['../structaudio__driver_1_1es8311__coeff__div.html#ae8754ff34c9e7cde1db8b8d949a324e5',1,'audio_driver::es8311_coeff_div']]],
   ['pre_5fmulti_119',['pre_multi',['../structaudio__driver_1_1es8311__coeff__div.html#a76955c985d564fe127cb03856503da9f',1,'audio_driver::es8311_coeff_div']]],
