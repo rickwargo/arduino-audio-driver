@@ -186,9 +186,6 @@ class AudioDriver {
     AD_LOGI("AudioDriver::begin");
     p_pins = &pins;
 
-    // start GPIO
-    getGPIO().begin(pins);
-
     // Store default i2c address to pins
     setupI2CAddress();
 
@@ -434,7 +431,6 @@ class AudioDriverCS43l22Class : public AudioDriver {
     codec_cfg = codecCfg;
     // setup gpio pin modes and the i2c bus (Wire.begin): must run before we
     // can drive the reset pin or talk to the codec over i2c
-    getGPIO().begin(pins);
     setupI2CAddress();
     if (!p_pins->begin()) {
       AD_LOGE("AudioBoard::pins::begin failed");
@@ -548,6 +544,11 @@ class AudioDriverCS42L51Class : public AudioDriver {
     AD_LOGD("AudioDriverCS42L51Class::begin");
     p_pins = &pins;
     codec_cfg = codecCfg;
+    setupI2CAddress();
+    if (!p_pins->begin()) {
+      AD_LOGE("AudioBoard::pins::begin failed");
+      return false;
+    }
     // manage reset pin -> acive high
     setPAPower(true);
     // Setup enable pin for codec
@@ -658,9 +659,13 @@ class AudioDriverCS42448Class : public AudioDriver {
     i2c_default_address = deviceAddr;
   }
   bool begin(CodecConfig codecCfg, DriverDeviceInfo& pins) override {
+    p_pins = &pins;
     cfg = codecCfg;
-    // setup pins
-    pins.begin();
+    setupI2CAddress();
+    if (!p_pins->begin()) {
+      AD_LOGE("AudioBoard::pins::begin failed");
+      return false;
+    }
     // setup cs42448
     cs42448.begin(cfg, getI2C(), getI2CAddress());
     cs42448.setMute(false);
@@ -1223,7 +1228,13 @@ class AudioDriverWM8960Class : public AudioDriver {
   WM8960& driver() { return wm8960; }
 
   bool begin(CodecConfig codecCfg, DriverDeviceInfo& pins) {
+    p_pins = &pins;
     codec_cfg = codecCfg;
+    setupI2CAddress();
+    if (!p_pins->begin()) {
+      AD_LOGE("AudioBoard::pins::begin failed");
+      return false;
+    }
 
     // define wire object
     wm8960.setWire(getI2C());
@@ -1408,6 +1419,12 @@ class AudioDriverWM8978Class : public AudioDriver {
   }
 
   bool begin(CodecConfig codecCfg, DriverDeviceInfo& pins) override {
+    p_pins = &pins;
+    setupI2CAddress();
+    if (!p_pins->begin()) {
+      AD_LOGE("AudioBoard::pins::begin failed");
+      return false;
+    }
     bool rc = true;
     rc = wm8078.begin(getI2C(), getI2CAddress());
     setConfig(codecCfg);
@@ -1555,10 +1572,15 @@ class AudioDriverWM8994Class : public AudioDriver {
 
   virtual bool begin(CodecConfig codecCfg, DriverDeviceInfo& pins) {
     codec_cfg = codecCfg;
+    p_pins = &pins;
+    setupI2CAddress();
+    if (!p_pins->begin()) {
+      AD_LOGE("AudioBoard::pins::begin failed");
+      return false;
+    }
     // manage reset pin -> active high
     setPAPower(true);
     delayMs(10);
-    p_pins = &pins;
     int vol = mapVolume(volume, 0, 100, WM8994::DEFAULT_VOLMIN, WM8994::DEFAULT_VOLMAX);
     uint32_t freq = codecCfg.getRateNumeric();
     uint16_t outputDevice = getOutput(codec_cfg.output_device);
@@ -1711,7 +1733,11 @@ class AudioDriverLyratMiniClass : public AudioDriver {
 
     // Start ES8311
     AD_LOGI("starting ES8311");
-    pins.begin();
+    setupI2CAddress();
+    if (!p_pins->begin()) {
+      AD_LOGE("AudioBoard::pins::begin failed");
+      return false;
+    }
     dac.setPins(this->pins());
     if (!dac.setConfig(codecCfg)) {
       AD_LOGE("setConfig failed");
@@ -1773,9 +1799,13 @@ class AudioDriverCombined : public AudioDriver {
     AD_LOGI("sdmmc_active: %d", codecCfg.sdmmc_active);
     p_pins->setSDMMCActive(codecCfg.sdmmc_active);
 
+    setupI2CAddress();
     // Start
     AD_LOGI("starting DAC");
-    pins.begin();
+    if (!p_pins->begin()) {
+      AD_LOGE("AudioBoard::pins::begin failed");
+      return false;
+    }
     p_dac->setPins(this->pins());
     if (!p_dac->setConfig(codecCfg)) {
       AD_LOGE("setConfig failed");
@@ -1898,6 +1928,11 @@ class AudioDriverNAU8325Class : public AudioDriver {
     AD_LOGI("AudioDriverNAU8325Class::begin");
 
     this->p_pins = &pins;
+    setupI2CAddress();
+    if (!p_pins->begin()) {
+      AD_LOGE("AudioBoard::pins::begin failed");
+      return false;
+    }
 
     // Get I2C config
     auto i2c_opt = pins.getI2CPins(PinFunction::CODEC);
@@ -1969,6 +2004,7 @@ class AudioDriverNAU8325Class : public AudioDriver {
 class AudioDriverAD1938Class : public AudioDriver {
  public:
   bool begin(CodecConfig codecCfg, DriverDeviceInfo& pins) override {
+    p_pins = &pins;
     int clatch = pins.getPinID(PinFunction::LATCH);
     if (clatch < 0) return false;
     int reset = pins.getPinID(PinFunction::RESET);
@@ -1981,8 +2017,12 @@ class AudioDriverAD1938Class : public AudioDriver {
       p_spi = &SPI;
       p_spi->begin();
     }
+    setupI2CAddress();
     // setup pins
-    pins.begin();
+    if (!p_pins->begin()) {
+      AD_LOGE("AudioBoard::pins::begin failed");
+      return false;
+    }
     // setup ad1938
     ad1938.begin(getGPIO(), codecCfg, clatch, reset, *p_spi);
     ad1938.enable();
