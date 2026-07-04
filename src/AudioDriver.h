@@ -432,12 +432,23 @@ class AudioDriverCS43l22Class : public AudioDriver {
     AD_LOGD("AudioDriverCS43l22Class::begin");
     p_pins = &pins;
     codec_cfg = codecCfg;
+    // setup gpio pin modes and the i2c bus (Wire.begin): must run before we
+    // can drive the reset pin or talk to the codec over i2c
+    getGPIO().begin(pins);
+    setupI2CAddress();
+    if (!p_pins->begin()) {
+      AD_LOGE("AudioBoard::pins::begin failed");
+      return false;
+    }
     // manage reset pin -> acive high
     setPAPower(true);
     // Setup enable pin for codec
     delayMs(100);
     cs43l22.setWire(getI2C());
     cs43l22.setAddress(getI2CAddress());
+    // 0xE0-0xE7 confirms the chip is actually responding on i2c; 0x00 means
+    // the read failed (wrong address/pins/reset) even if writes look ok
+    AD_LOGI("CS43L22 chip id: 0x%x", cs43l22.readID());
     uint32_t freq = getFrequency(codec_cfg.i2s.rate);
     uint16_t outputDevice = getOutput(codec_cfg.output_device);
     AD_LOGD("cs43l22.init");

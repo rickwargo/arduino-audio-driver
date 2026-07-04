@@ -37,7 +37,7 @@ class PinsSTM32F411DiscoClass : public DriverDeviceInfo {
     // add i2c codec pins: scl, sda, port, frequency
     addI2C(PinFunction::CODEC, PB6, PB9);
     // add i2s pins: mclk, bck, ws,data_out, data_in ,(port)
-    addI2S(PinFunction::CODEC, PC7, PC10, PA4, PC3, PC12);
+    addI2S(PinFunction::CODEC, PC7, PC10, PA4, PC12, PC3);
 
     // add other pins
     addPin(PinFunction::KEY, PA0, PinLogic::Output);      // user button
