@@ -1042,8 +1042,8 @@ class WM8960 {
   bool setupPll(uint32_t mclk_hz, wm8960_adc_dac_sample_rate_t sample_rate) {
     AD_LOGD("setupPll");
     bool result;
-    uint8_t PLLN;
-    uint32_t PLLK;
+    uint8_t pll_n;
+    uint32_t pll_k;
     bool use_prescale = false;
     uint32_t sys_clk_hz;
 
@@ -1076,22 +1076,22 @@ class WM8960 {
       return false;
     }
 
-    PLLN = (uint8_t)R;
-    PLLK = (uint32_t)((float)0x1000000 * (R - (float)PLLN));
+    pll_n = (uint8_t)R;
+    pll_k = (uint32_t)((float)0x1000000 * (R - (float)pll_n));
     uint16_t prescale_mask = (use_prescale) ? WM8960_PLL_N_PLLPRESCALE_EN
                                              : WM8960_PLL_N_PLLPRESCALE_DI;
 
     result = write(WM8960_REG_PLL_N,
-                   PLLN | prescale_mask | WM8960_PLL_N_SDM_FRAC);
+                   pll_n | prescale_mask | WM8960_PLL_N_SDM_FRAC);
     if (!result) return result;
 
-    result = write(WM8960_REG_PLL_K1, PLLK >> 16 & 0xFF);
+    result = write(WM8960_REG_PLL_K1, pll_k >> 16 & 0xFF);
     if (!result) return result;
 
-    result = write(WM8960_REG_PLL_K2, PLLK >> 8 & 0xFF);
+    result = write(WM8960_REG_PLL_K2, pll_k >> 8 & 0xFF);
     if (!result) return result;
 
-    result = write(WM8960_REG_PLL_K3, PLLK & 0xFF);
+    result = write(WM8960_REG_PLL_K3, pll_k & 0xFF);
     if (!result) return result;
 
     result = set(WM8960_REG_PWR_MGMT2, WM8960_PWR_MGMT2_PLL_EN_UP);
