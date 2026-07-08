@@ -1544,10 +1544,16 @@ class AudioDriverWM8994Class : public AudioDriver {
 
   virtual bool begin(CodecConfig codecCfg, DriverDeviceInfo& pins) {
     codec_cfg = codecCfg;
+    p_pins = &pins;
+    // setup pins (incl. Wire.setSCL/setSDA/begin() for the I2C bus this
+    // board's addI2C() config points at) - without this, getI2C() below
+    // still returns the right TwoWire*, but it was never actually begin()'d
+    // with this board's pins, so every transmission hits an uninitialized
+    // peripheral (see AudioDriverCS42448Class::begin() for the same pattern)
+    pins.begin();
     // manage reset pin -> active high
     setPAPower(true);
     delayMs(10);
-    p_pins = &pins;
     int vol = mapVolume(volume, 0, 100, WM8994::DEFAULT_VOLMIN, WM8994::DEFAULT_VOLMAX);
     uint32_t freq = codecCfg.getRateNumeric();
     uint16_t outputDevice = getOutput(codec_cfg.output_device);
