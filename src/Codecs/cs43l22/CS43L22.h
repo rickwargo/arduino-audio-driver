@@ -214,7 +214,9 @@ class CS43L22 {
 
   /// Get the CS43L22 ID.
   uint32_t readID() {
+    uint8_t reg = CS43L22_CHIPID_ADDR;
     uint8_t value = 0;
+    i2c_bus_read_bytes(i2c_handle, device_addr, &reg, 1, &value, 1);
     return (uint32_t)(value & CS43L22_ID_MASK);
   }
 
@@ -375,8 +377,8 @@ class CS43L22 {
   /// Resets cs43l22 registers.
   uint32_t reset() { return 0; }
   uint8_t writeReg(uint8_t reg, uint8_t value) {
-    i2c_bus_write_bytes(i2c_handle, device_addr, &reg, 1, &value, 1);
-    return 0;
+    error_t rc = i2c_bus_write_bytes(i2c_handle, device_addr, &reg, 1, &value, 1);
+    return rc == RESULT_OK ? 0 : 1;
   }
 
  protected:
