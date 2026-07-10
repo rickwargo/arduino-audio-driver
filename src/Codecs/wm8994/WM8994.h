@@ -130,8 +130,9 @@ class WM8994 {
     /* Enable bias generator, Enable VMID */
     counter += writeReg16(0x01, 0x0003);
 
-    /* Add Delay */
-    delayMs(100);
+    /* Add Delay - matches ST's reference exactly (wm8994.c), not scaled by
+     * family or cold/warm state. */
+    delayMs(50);
 
     /* Path Configurations for output */
     if (output_device > 0) {
@@ -340,41 +341,17 @@ class WM8994 {
         /* Select DAC1 (Right) to Right Headphone Output PGA (HPOUT1RVOL) path */
         counter += writeReg16(0x2E, 0x0100);
 
-        /* Startup sequence for Headphone.
-         * ST's own STM32F769I-DISCO errata (confirmed on their community
-         * forum) says the "reference" 300ms/50ms cold/warm delays here only
-         * hold for the 8/16/32/48/96kHz family. The write-sequencer's
-         * internal ROM runs off a different derived clock for the
-         * 11.025/22.05/44.1kHz family, so cold start needs ~325-350ms there
-         * - if writes to the output-mixer/volume/AIF-mute registers
-         * (0x1C/0x1D/0x2D/0x2E/0x420/0x422) follow too soon, the codec
-         * silently ignores them (no NACK, no error) while it's still
-         * settling. */
-        bool is_441k_family = (AudioFreq == AUDIO_FREQUENCY_11K) ||
-                              (AudioFreq == AUDIO_FREQUENCY_22K) ||
-                              (AudioFreq == AUDIO_FREQUENCY_44K);
-        uint32_t cold_wait_ms = is_441k_family ? 700 : 600;
-        uint32_t warm_wait_ms = is_441k_family ? 120 : 100;
-
+        /* Startup sequence for Headphone - delays match ST's reference
+         * exactly (wm8994.c: 300ms cold / 50ms warm, no family scaling). */
         if (is_cold_startup) {
           counter += writeReg16(0x110, 0x8100);
           is_cold_startup = false;
-          delayMs(cold_wait_ms);
+          delayMs(300);
         } else {
           /* Headphone Warm Start-Up */
           counter += writeReg16(0x110, 0x8108);
-          delayMs(warm_wait_ms);
+          delayMs(50);
         }
-
-        /* Diagnostic only: WSEQ_BUSY (Write Sequencer Ctrl (2), reg 0x111,
-         * bit 8) clears almost immediately regardless of family - it only
-         * reflects the write-sequencer's own ROM step-through, not the
-         * analog charge-pump/DC-servo settling that continues in the
-         * background for the delay above, so it must not be used to
-         * shorten the wait. */
-        uint16_t seq_status = readReg16(0x111);
-        AD_LOGD("write sequencer: busy=%d after trigger (0x111=0x%04X)",
-                (seq_status & 0x0100) != 0, seq_status);
 
         /* Soft un-Mute the AIF1 Timeslot 0 DAC1 path L&R */
         counter += writeReg16(0x420, 0x0000);
@@ -415,7 +392,7 @@ class WM8994 {
       counter += writeReg16(0x4C, 0x9F25);
 
       /* Add Delay */
-      delayMs(100);
+      delayMs(15);
 
       /* Select DAC1 (Left) to Left Headphone Output PGA (HPOUT1LVOL) path */
       counter += writeReg16(0x2D, 0x0001);
@@ -431,16 +408,10 @@ class WM8994 {
       counter += writeReg16(0x54, 0x0033);
 
       /* Add Delay */
-      delayMs(514);
-
-      AD_LOGD("before clamp removal: 0x01=0x%X 0x2D=0x%X", readReg16(0x01),
-              readReg16(0x2D));
+      delayMs(257);
 
       /* Enable HPOUT1 (Left) and HPOUT1 (Right) intermediate and output stages. Remove clamps */
       counter += writeReg16(0x60, 0x00EE);
-
-      AD_LOGD("after clamp removal: 0x01=0x%X 0x2D=0x%X", readReg16(0x01),
-              readReg16(0x2D));
 
       /* Unmutes */
 
@@ -461,6 +432,20 @@ class WM8994 {
 
       /* Unmute the AIF1 Timeslot 1 DAC2 path */
       counter += writeReg16(0x422, 0x0010);
+
+      if (output_device == OUTPUT_DEVICE_HEADPHONE) {
+        /* The write-sequencer (0x110 trigger) re-enables DAC2's AIF+analog
+         * power bits (0x05) and its Timeslot1 routing (0x604/0x605) as
+         * part of its own internal bring-up, even though only DAC1/
+         * headphone was requested here - leaving DAC2 fully powered but
+         * idle, a plausible source of audible hum via crosstalk. Force it
+         * back off now that the sequencer has finished (0x0303 matches
+         * the original headphone-only value written earlier in this
+         * function). */
+        counter += writeReg16(0x05, 0x0303);
+        counter += writeReg16(0x604, 0x0000);
+        counter += writeReg16(0x605, 0x0000);
+      }
 
       /* Volume Control */
       setVolume(Volume);
@@ -692,7 +677,8 @@ class WM8994 {
         /* Unmute audio codec */
         counter += setMute(AUDIO_MUTE_OFF);
 
-        /* Left Headphone Volume */
+        /* Left Headphone Volume (0x100 = HPOUT1_VU, a self-clearing
+         * "apply now" strobe) */
         counter += writeReg16(0x1C, 0x3F | 0x140);
 
         /* Right Headphone Volume */
@@ -703,9 +689,6 @@ class WM8994 {
 
         /* Right Speaker Volume */
         counter += writeReg16(0x27, 0x3F | 0x140);
-
-        AD_LOGD("after volume writes: 0x420=0x%X 0x1C=0x%X", readReg16(0x420),
-                readReg16(0x1C));
       } else if (Volume == 0) {
         /* Mute audio codec */
         counter += setMute(AUDIO_MUTE_ON);
@@ -713,7 +696,7 @@ class WM8994 {
         /* Unmute audio codec */
         counter += setMute(AUDIO_MUTE_OFF);
 
-        /* Left Headphone Volume */
+        /* Left Headphone Volume (0x100 = HPOUT1_VU, self-clearing strobe) */
         counter += writeReg16(0x1C, convertedvol | 0x140);
 
         /* Right Headphone Volume */
@@ -964,6 +947,44 @@ class WM8994 {
 #endif /* VERIFY_WRITTENDATA */
 
     return result;
+  }
+
+  /**
+   * @brief Writes a register and confirms (by reading it back) that the
+   * value actually stuck, retrying with a short wait if not. Some WM8994
+   * output-path registers (HP volume/mixer routing/AIF mute) can silently
+   * ignore writes for a while during headphone bring-up while the analog
+   * bias/DC-servo domain is still settling - and that settling time isn't
+   * reliably bounded by any fixed delay we've found (WSEQ_BUSY, register
+   * 0x111 bit 8, clears almost instantly and doesn't reflect it - observed
+   * empirically to vary run-to-run even with a generous fixed pre-delay).
+   * This self-adapts to however long the chip actually needs on a given
+   * boot instead of gambling on one guessed number.
+   * @param mask Only these bits are compared on readback - needed for
+   *        registers with a self-clearing "apply now" strobe bit (e.g.
+   *        HPOUT1_VU, bit 8 of 0x1C/0x1D) that always reads back 0 even on
+   *        a fully successful write, which would otherwise burn the whole
+   *        retry budget on every call regardless of success.
+   * @retval 0 on success, non-zero if the value never stuck within retries.
+   */
+  uint8_t writeReg16Verified(uint16_t reg, uint16_t value,
+                             uint16_t mask = 0xFFFF, uint8_t maxRetries = 20,
+                             uint32_t retryDelayMs = 25) {
+    for (uint8_t attempt = 0; attempt < maxRetries; attempt++) {
+      writeReg(reg, value);
+      if ((readReg16(reg) & mask) == (value & mask)) {
+        if (attempt > 0) {
+          AD_LOGD("writeReg16Verified: reg=0x%X stuck after %d retries", reg,
+                  attempt);
+        }
+        return 0;
+      }
+      delayMs(retryDelayMs);
+    }
+    AD_LOGE(
+        "writeReg16Verified: reg=0x%X never retained 0x%X after %d retries",
+        reg, value, maxRetries);
+    return 1;
   }
 
   static constexpr uint8_t wm8994VolumeConvert(uint8_t volume) {

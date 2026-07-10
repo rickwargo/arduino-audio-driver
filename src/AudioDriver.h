@@ -1587,7 +1587,20 @@ class AudioDriverWM8994Class : public AudioDriver {
 
     wm8994.setWire(getI2C());
     wm8994.setAddress(getI2CAddress());
-    return wm8994.init(outputDevice, vol, freq) == 0;
+    // Don't treat a non-zero init() counter as fatal: writeReg16Verified()
+    // now actually detects registers that fail to retain a write (logged
+    // via AD_LOGE at the point of failure), where the older writeReg16()
+    // silently always reported success. Aborting begin() here would regress
+    // from "plays with some registers imperfectly configured" (the previous
+    // behavior) to "doesn't play at all" for a problem that was already
+    // there, just previously invisible - keep going best-effort instead.
+    wm8994.init(outputDevice, vol, freq);
+    // AudioBoard::begin() unconditionally calls setVolume(DRIVER_DEFAULT_VOLUME)
+    // right after this returns - init() above already wrote the volume
+    // registers once; skip that redundant second round-trip to the exact
+    // same registers (0x1C/0x1D/0x420/0x422) once, here.
+    volume_set_in_begin = true;
+    return true;
   }
 
   bool setMute(bool mute) {
@@ -1596,6 +1609,11 @@ class AudioDriverWM8994Class : public AudioDriver {
   }
 
   bool setVolume(int volume) {
+    if (volume_set_in_begin) {
+      volume_set_in_begin = false;
+      this->volume = volume;
+      return true;
+    }
     this->volume = volume;
     int vol = mapVolume(volume, 0, 100, WM8994::DEFAULT_VOLMIN, WM8994::DEFAULT_VOLMAX);
     return wm8994.setVolume(vol) == 0;
@@ -1603,7 +1621,8 @@ class AudioDriverWM8994Class : public AudioDriver {
   int getVolume() { return volume; }
 
  protected:
-  int volume = 100;
+  int volume = DRIVER_DEFAULT_VOLUME;
+  bool volume_set_in_begin = false;
   WM8994 wm8994;
 
   bool deinit() {
