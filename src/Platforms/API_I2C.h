@@ -78,10 +78,26 @@ inline void i2c_bus_delete(i2c_bus_handle_t bus) {
 #endif
 }
 
+// Renders up to 8 bytes as a contiguous hex string (e.g. {0x00,0x2D} -> "002D")
+// for logging - reg/data can be 1 or more bytes, and printf has no portable
+// way to log a runtime-length byte array, so build the string first.
+inline const char *ad_log_hex(char *out, size_t out_size, const uint8_t *bytes,
+                               int len) {
+  size_t pos = 0;
+  for (int i = 0; i < len && pos + 2 < out_size; i++) {
+    pos += snprintf(out + pos, out_size - pos, "%02X", bytes[i]);
+  }
+  out[pos] = 0;
+  return out;
+}
+
 inline error_t i2c_bus_write_bytes(i2c_bus_handle_t bus, int addr, uint8_t *reg,
                                    int reglen, uint8_t *data, int datalen) {
-  AD_LOGD("i2c_bus_write_bytes: addr=0x%X reglen=%d datalen=%d - reg=0x%0X ",
-          addr, reglen, datalen, reg[0]);
+  char reg_hex[8];
+  char data_hex[24];
+  AD_LOGD("i2c_bus_write_bytes: addr=0x%X reg=0x%s data=0x%s", addr,
+          ad_log_hex(reg_hex, sizeof(reg_hex), reg, reglen),
+          ad_log_hex(data_hex, sizeof(data_hex), data, datalen));
   TwoWire *p_wire = (TwoWire *)bus;
   assert(p_wire != nullptr);
   int result = RESULT_OK;
@@ -98,8 +114,9 @@ inline error_t i2c_bus_write_bytes(i2c_bus_handle_t bus, int addr, uint8_t *reg,
 
 inline error_t i2c_bus_read_bytes(i2c_bus_handle_t bus, int addr, uint8_t *reg,
                                   int reglen, uint8_t *outdata, int datalen) {
-  AD_LOGD("i2c_bus_read_bytes: addr=0x%X reglen=%d datalen=%d - reg=0x%X", addr,
-          reglen, datalen, reg[0]);
+  char reg_hex[8];
+  AD_LOGD("i2c_bus_read_bytes: addr=0x%X reg=0x%s", addr,
+          ad_log_hex(reg_hex, sizeof(reg_hex), reg, reglen));
   TwoWire *p_wire = (TwoWire *)bus;
   assert(p_wire != nullptr);
 
@@ -116,6 +133,10 @@ inline error_t i2c_bus_read_bytes(i2c_bus_handle_t bus, int addr, uint8_t *reg,
   uint8_t result_len = p_wire->requestFrom(addr, datalen, (int)I2C_END);
   if (result_len > 0) {
     result_len = p_wire->readBytes(outdata, datalen);
+    char data_hex[24];
+    AD_LOGD("i2c_bus_read_bytes: addr=0x%X reg=0x%s -> data=0x%s", addr,
+            ad_log_hex(reg_hex, sizeof(reg_hex), reg, reglen),
+            ad_log_hex(data_hex, sizeof(data_hex), outdata, datalen));
   } else {
     AD_LOGE("->p_wire->requestFrom %d->%d", datalen, result_len);
     result = RESULT_FAIL;

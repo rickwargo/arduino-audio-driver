@@ -130,12 +130,13 @@ class WM8994 {
     /* Enable bias generator, Enable VMID */
     counter += writeReg16(0x01, 0x0003);
 
-    /* Add Delay */
+    /* Add Delay - matches ST's reference exactly (wm8994.c), not scaled by
+     * family or cold/warm state. */
     delayMs(50);
 
     /* Path Configurations for output */
     if (output_device > 0) {
-      outputEnabled = 1;
+      output_enabled = 1;
       switch (output_device) {
         case OUTPUT_DEVICE_SPEAKER:
           /* Enable DAC1 (Left), Enable DAC1 (Right),
@@ -211,12 +212,12 @@ class WM8994 {
           break;
       }
     } else {
-      outputEnabled = 0;
+      output_enabled = 0;
     }
 
     /* Path Configurations for input */
     if (input_device > 0) {
-      inputEnabled = 1;
+      input_enabled = 1;
       switch (input_device) {
         case INPUT_DEVICE_DIGITAL_MICROPHONE_2:
           /* Enable AIF1ADC2 (Left), Enable AIF1ADC2 (Right)
@@ -269,7 +270,7 @@ class WM8994 {
           break;
       }
     } else {
-      inputEnabled = 0;
+      input_enabled = 0;
     }
 
     /*  Clock Configurations */
@@ -328,6 +329,34 @@ class WM8994 {
 
     if (output_device > 0) /* Audio output selected */
     {
+      if (output_device == OUTPUT_DEVICE_HEADPHONE) {
+        // Missing vs. the official ST BSP wm8994_Init(): without this, the
+        // headphone path never actually gets brought up by WM8994's internal
+        // write-sequencer, so I2C/DAC/mixer config can all succeed
+        // (indistinguishable in logs/DMA behavior) while HPOUT stays silent.
+
+        /* Select DAC1 (Left) to Left Headphone Output PGA (HPOUT1LVOL) path */
+        counter += writeReg16(0x2D, 0x0100);
+
+        /* Select DAC1 (Right) to Right Headphone Output PGA (HPOUT1RVOL) path */
+        counter += writeReg16(0x2E, 0x0100);
+
+        /* Startup sequence for Headphone - delays match ST's reference
+         * exactly (wm8994.c: 300ms cold / 50ms warm, no family scaling). */
+        if (is_cold_startup) {
+          counter += writeReg16(0x110, 0x8100);
+          is_cold_startup = false;
+          delayMs(300);
+        } else {
+          /* Headphone Warm Start-Up */
+          counter += writeReg16(0x110, 0x8108);
+          delayMs(50);
+        }
+
+        /* Soft un-Mute the AIF1 Timeslot 0 DAC1 path L&R */
+        counter += writeReg16(0x420, 0x0000);
+      }
+
       /* Analog Output Configuration */
 
       /* Enable SPKRVOL PGA, Enable SPKMIXR, Enable SPKLVOL PGA, Enable SPKMIXL */
@@ -379,7 +408,7 @@ class WM8994 {
       counter += writeReg16(0x54, 0x0033);
 
       /* Add Delay */
-      delayMs(250);
+      delayMs(257);
 
       /* Enable HPOUT1 (Left) and HPOUT1 (Right) intermediate and output stages. Remove clamps */
       counter += writeReg16(0x60, 0x00EE);
@@ -393,7 +422,7 @@ class WM8994 {
       counter += writeReg16(0x611, 0x00C0);
 
       /* Unmute the AIF1 Timeslot 0 DAC path */
-      counter += writeReg16(0x420, 0x0000);
+      counter += writeReg16(0x420, 0x0010);
 
       /* Unmute DAC 2 (Left) */
       counter += writeReg16(0x612, 0x00C0);
@@ -402,7 +431,21 @@ class WM8994 {
       counter += writeReg16(0x613, 0x00C0);
 
       /* Unmute the AIF1 Timeslot 1 DAC2 path */
-      counter += writeReg16(0x422, 0x0000);
+      counter += writeReg16(0x422, 0x0010);
+
+      if (output_device == OUTPUT_DEVICE_HEADPHONE) {
+        /* The write-sequencer (0x110 trigger) re-enables DAC2's AIF+analog
+         * power bits (0x05) and its Timeslot1 routing (0x604/0x605) as
+         * part of its own internal bring-up, even though only DAC1/
+         * headphone was requested here - leaving DAC2 fully powered but
+         * idle, a plausible source of audible hum via crosstalk. Force it
+         * back off now that the sequencer has finished (0x0303 matches
+         * the original headphone-only value written earlier in this
+         * function). */
+        counter += writeReg16(0x05, 0x0303);
+        counter += writeReg16(0x604, 0x0000);
+        counter += writeReg16(0x605, 0x0000);
+      }
 
       /* Volume Control */
       setVolume(Volume);
@@ -460,6 +503,75 @@ class WM8994 {
   /// Get the WM8994 ID.
   uint32_t readId() { return ((uint32_t)readReg16(WM8994_CHIPID_ADDR)); }
 
+  /// Reads back and logs (AD_LOGI) every register this driver writes to -
+  /// useful to confirm a register actually retained a value instead of
+  /// trusting a successful I2C ACK as proof.
+  void dumpRegisters() {
+    static const struct {
+      uint16_t reg;
+      const char *name;
+    } regs[] = {
+        {0x00, "SW Reset / Chip ID"},
+        {0x01, "Power Management (1)"},
+        {0x02, "Power Management (2)"},
+        {0x03, "Power Management (3)"},
+        {0x04, "Power Management (4)"},
+        {0x05, "Power Management (5)"},
+        {0x18, "Left Line Input 1&2 Volume"},
+        {0x1A, "Right Line Input 1&2 Volume"},
+        {0x1C, "Left Output Volume"},
+        {0x1D, "Right Output Volume"},
+        {0x22, "Left OPGA Volume"},
+        {0x23, "Right OPGA Volume"},
+        {0x26, "Speaker Volume Left"},
+        {0x27, "Speaker Volume Right"},
+        {0x28, "Input Mixer (2)"},
+        {0x29, "Input Mixer (3)"},
+        {0x2A, "Input Mixer (4)"},
+        {0x2D, "Output Mixer (1)"},
+        {0x2E, "Output Mixer (2)"},
+        {0x36, "Output Mixer (5)"},
+        {0x39, "Antipop (1)"},
+        {0x51, "Class W (1)"},
+        {0x54, "DC Servo (1)"},
+        {0x60, "Analogue HP (1)"},
+        {0x4C, "Charge Pump (1)"},
+        {0x102, "Clocking (1) - errata"},
+        {0x110, "Write Sequencer Ctrl (1)"},
+        {0x200, "AIF1 Clocking (1)"},
+        {0x208, "Clocking (1)"},
+        {0x210, "AIF1 Rate"},
+        {0x300, "AIF1 Control (1)"},
+        {0x302, "AIF1 Master/Slave"},
+        {0x410, "AIF1 ADC1 Filters"},
+        {0x411, "AIF1 ADC2 Filters"},
+        {0x420, "AIF1 DAC1 Filters (1)"},
+        {0x422, "AIF1 DAC2 Filters (1)"},
+        {0x440, "AIF1 DRC1 (1)"},
+        {0x450, "AIF1 DRC2 (1)"},
+        {0x601, "AIF1 DAC1 Left Mixer Routing"},
+        {0x602, "AIF1 DAC1 Right Mixer Routing"},
+        {0x604, "AIF1 DAC2 Left Mixer Routing"},
+        {0x605, "AIF1 DAC2 Right Mixer Routing"},
+        {0x606, "DAC1 Left Mixer Routing"},
+        {0x607, "DAC1 Right Mixer Routing"},
+        {0x608, "DAC2 Left Mixer Routing"},
+        {0x609, "DAC2 Right Mixer Routing"},
+        {0x610, "DAC1 Left Volume"},
+        {0x611, "DAC1 Right Volume"},
+        {0x612, "DAC2 Left Volume"},
+        {0x613, "DAC2 Right Volume"},
+        {0x620, "Oversampling"},
+        {0x700, "GPIO 1"},
+        {0x817, "Clocking - errata"},
+    };
+    AD_LOGI("WM8994 register dump (%d registers):",
+            (int)(sizeof(regs) / sizeof(regs[0])));
+    for (auto &r : regs) {
+      AD_LOGI("  0x%04X %-28s = 0x%04X", r.reg, r.name, readReg16(r.reg));
+    }
+  }
+
   /**
    * @brief Start the audio Codec play feature.
    * @note For this codec no Play options are required.
@@ -515,7 +627,7 @@ class WM8994 {
   uint32_t stop(uint32_t CodecPdwnMode) {
     uint32_t counter = 0;
 
-    if (outputEnabled != 0) {
+    if (output_enabled != 0) {
       /* Mute the output first */
       counter += setMute(AUDIO_MUTE_ON);
 
@@ -541,7 +653,7 @@ class WM8994 {
         /* Reset Codec by writing in 0x0000 address register */
         counter += writeReg16(0x0000, 0x0000);
 
-        outputEnabled = 0;
+        output_enabled = 0;
       }
     }
     return counter;
@@ -556,14 +668,17 @@ class WM8994 {
   uint32_t setVolume(uint8_t Volume) {
     uint32_t counter = 0;
     uint8_t convertedvol = wm8994VolumeConvert(Volume);
+    AD_LOGD("setVolume: Volume=%d convertedvol=0x%X output_enabled=%d", Volume,
+            convertedvol, output_enabled);
 
     /* Output volume */
-    if (outputEnabled != 0) {
+    if (output_enabled != 0) {
       if (convertedvol > 0x3E) {
         /* Unmute audio codec */
         counter += setMute(AUDIO_MUTE_OFF);
 
-        /* Left Headphone Volume */
+        /* Left Headphone Volume (0x100 = HPOUT1_VU, a self-clearing
+         * "apply now" strobe) */
         counter += writeReg16(0x1C, 0x3F | 0x140);
 
         /* Right Headphone Volume */
@@ -581,7 +696,7 @@ class WM8994 {
         /* Unmute audio codec */
         counter += setMute(AUDIO_MUTE_OFF);
 
-        /* Left Headphone Volume */
+        /* Left Headphone Volume (0x100 = HPOUT1_VU, self-clearing strobe) */
         counter += writeReg16(0x1C, convertedvol | 0x140);
 
         /* Right Headphone Volume */
@@ -596,7 +711,7 @@ class WM8994 {
     }
 
     /* Input volume */
-    if (inputEnabled != 0) {
+    if (input_enabled != 0) {
       convertedvol = volumeInConvert(Volume);
 
       /* Left AIF1 ADC1 volume */
@@ -623,7 +738,7 @@ class WM8994 {
   uint32_t setMute(uint32_t Cmd) {
     uint32_t counter = 0;
 
-    if (outputEnabled != 0) {
+    if (output_enabled != 0) {
       /* Set the Mute mode */
       if (Cmd == AUDIO_MUTE_ON) {
         /* Soft Mute the AIF1 Timeslot 0 DAC1 path L&R */
@@ -788,23 +903,31 @@ class WM8994 {
 
     /* Reset Codec by writing in 0x0000 address register */
     counter = writeReg16(0x0000, 0x0000);
-    outputEnabled = 0;
-    inputEnabled = 0;
+    output_enabled = 0;
+    input_enabled = 0;
 
     return counter;
   }
-  /// Writes a 16-bit register value over I2C
+  /// Writes a 16-bit register value over I2C. WM8994 expects both the
+  /// register address and the data value big-endian (MSB first) on the
+  /// wire - (uint8_t*)&reg/&value would reinterpret the host's in-memory
+  /// byte order instead (little-endian on Cortex-M), silently sending
+  /// everything byte-swapped. Confirmed live: reading back the chip ID
+  /// returned 0x9489 instead of 0x8994 - exactly its bytes swapped.
   void writeReg(uint16_t reg, uint16_t value) {
-    i2c_bus_write_bytes(i2c_handle, i2c_addr, (uint8_t *)&reg,
-                        sizeof(uint16_t), (uint8_t *)&value, sizeof(value));
+    uint8_t reg_be[2] = {(uint8_t)(reg >> 8), (uint8_t)(reg & 0xFF)};
+    uint8_t value_be[2] = {(uint8_t)(value >> 8), (uint8_t)(value & 0xFF)};
+    i2c_bus_write_bytes(i2c_handle, i2c_addr, reg_be, sizeof(reg_be), value_be,
+                        sizeof(value_be));
   }
 
-  /// Reads back a register value over I2C
+  /// Reads back a register value over I2C (see writeReg's note on byte order)
   uint16_t readReg16(uint16_t reg) {
-    uint16_t value = 0;
-    i2c_bus_read_bytes(i2c_handle, i2c_addr, (uint8_t *)&reg, sizeof(uint16_t),
-                       (uint8_t *)&value, sizeof(value));
-    return value;
+    uint8_t reg_be[2] = {(uint8_t)(reg >> 8), (uint8_t)(reg & 0xFF)};
+    uint8_t value_be[2] = {0, 0};
+    i2c_bus_read_bytes(i2c_handle, i2c_addr, reg_be, sizeof(reg_be), value_be,
+                       sizeof(value_be));
+    return ((uint16_t)value_be[0] << 8) | value_be[1];
   }
 
   /**
@@ -826,6 +949,44 @@ class WM8994 {
     return result;
   }
 
+  /**
+   * @brief Writes a register and confirms (by reading it back) that the
+   * value actually stuck, retrying with a short wait if not. Some WM8994
+   * output-path registers (HP volume/mixer routing/AIF mute) can silently
+   * ignore writes for a while during headphone bring-up while the analog
+   * bias/DC-servo domain is still settling - and that settling time isn't
+   * reliably bounded by any fixed delay we've found (WSEQ_BUSY, register
+   * 0x111 bit 8, clears almost instantly and doesn't reflect it - observed
+   * empirically to vary run-to-run even with a generous fixed pre-delay).
+   * This self-adapts to however long the chip actually needs on a given
+   * boot instead of gambling on one guessed number.
+   * @param mask Only these bits are compared on readback - needed for
+   *        registers with a self-clearing "apply now" strobe bit (e.g.
+   *        HPOUT1_VU, bit 8 of 0x1C/0x1D) that always reads back 0 even on
+   *        a fully successful write, which would otherwise burn the whole
+   *        retry budget on every call regardless of success.
+   * @retval 0 on success, non-zero if the value never stuck within retries.
+   */
+  uint8_t writeReg16Verified(uint16_t reg, uint16_t value,
+                             uint16_t mask = 0xFFFF, uint8_t maxRetries = 20,
+                             uint32_t retryDelayMs = 25) {
+    for (uint8_t attempt = 0; attempt < maxRetries; attempt++) {
+      writeReg(reg, value);
+      if ((readReg16(reg) & mask) == (value & mask)) {
+        if (attempt > 0) {
+          AD_LOGD("writeReg16Verified: reg=0x%X stuck after %d retries", reg,
+                  attempt);
+        }
+        return 0;
+      }
+      delayMs(retryDelayMs);
+    }
+    AD_LOGE(
+        "writeReg16Verified: reg=0x%X never retained 0x%X after %d retries",
+        reg, value, maxRetries);
+    return 1;
+  }
+
   static constexpr uint8_t wm8994VolumeConvert(uint8_t volume) {
     return volume > 100 ? 100 : (uint8_t)((volume * 63) / 100);
   }
@@ -836,8 +997,11 @@ class WM8994 {
  protected:
   i2c_bus_handle_t i2c_handle = nullptr;
   int i2c_addr = WM8994_ADDR;
-  uint32_t outputEnabled = 0;
-  uint32_t inputEnabled = 0;
+  uint32_t output_enabled = 0;
+  uint32_t input_enabled = 0;
+  /// First-ever headphone power-up needs the longer (cold) sequencer delay;
+  /// see the register 0x110 write in init() below.
+  bool is_cold_startup = true;
 };
 
 }  // namespace audio_driver
