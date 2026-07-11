@@ -151,7 +151,6 @@ using GpioPin = int16_t;
 using ADCPin  = int16_t;
 using i2c_bus_handle_t = void*;
 using spi_bus_handle_t = void*;
-using sdmmc_bus_handle_t = void*;
 #endif
 
 // ----------------------------------------------------------------------------
@@ -330,7 +329,7 @@ enum class PinLogic {
   Input,
   Output,
   Inactive,
-  OutputEnableLow,
+  OutputActiveLow,
 };
 
 /**

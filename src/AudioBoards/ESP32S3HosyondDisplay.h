@@ -70,7 +70,7 @@ namespace audio_driver
             addI2S(PinFunction::CODEC, HOSYOND_I2S_MCK, HOSYOND_I2S_BCK, HOSYOND_I2S_WS, HOSYOND_I2S_DOUT, HOSYOND_I2S_DIN);
 
             // add other pins
-            addPin(PinFunction::PA, HOSYOND_AUDIO_PA_ENABLE, PinLogic::OutputEnableLow);      // Audio output enable signal, low level enable, high level disable
+            addPin(PinFunction::PA, HOSYOND_AUDIO_PA_ENABLE, PinLogic::OutputActiveLow);      // Audio output enable signal, low level enable, high level disable
             addPin(PinFunction::KEY, HOSYOND_BOOT_BUTTON, PinLogic::InputActiveLow, 1); // Boot Key button
 
             // Additional GPIO Expansion Pins - can be used as a normal IO

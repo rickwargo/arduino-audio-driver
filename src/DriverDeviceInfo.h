@@ -307,7 +307,7 @@ class DriverDeviceInfo : public IDriverDeviceInfo {
               gpio.pinMode(tmp.pin, INPUT);
               break;
             case PinLogic::Output:
-            case PinLogic::OutputEnableLow:
+            case PinLogic::OutputActiveLow:
               gpio.pinMode(tmp.pin, OUTPUT);
               break;
             default:
